@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forest Audio Monitor</title>
+  <meta name="description" content="ForestAudio real-time monitoring dashboard" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --bg-alt: #eef2f8;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-strong: rgba(255, 255, 255, 0.98);
+      --border: rgba(23, 37, 84, 0.08);
+      --text: #142033;
+      --muted: #5f6b7a;
+      --muted-2: #7d8796;
+      --accent: #2b7bbb;
+      --accent-2: #5b7cfa;
+      --danger: #c94b4b;
+      --warning: #c8842e;
+      --success: #2f8f6b;
+      --slate: #7a8797;
+      --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --gap: 18px;
+      --page-max: 1760px;
+      --font-body: 'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-display: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(43, 123, 187, 0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(91, 124, 250, 0.1), transparent 28%),
+        linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 48%, #eef3f8 100%);
+      color: var(--text);
+      font-family: var(--font-body);
+    }
+
+    body::before,
+    body::after {
+      content: '';
+      position: fixed;
+      inset: auto;
+      width: 42vw;
+      height: 42vw;
+      pointer-events: none;
+      filter: blur(80px);
+      opacity: 0.22;
+      z-index: 0;
+    }
+
+    body::before {
+      top: -12vw;
+      left: -10vw;
+      background: rgba(43, 123, 187, 0.18);
+    }
+
+    body::after {
+      bottom: -14vw;
+      right: -10vw;
+      background: rgba(91, 124, 250, 0.16);
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: var(--page-max);
+      margin: 0 auto;
+      padding: 22px 20px 36px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(380px, 0.95fr);
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .dashboard-rail {
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+
+    .brand-panel,
+    .status-panel,
+    .card,
+    .section,
+    .table-card,
+    .list-card {
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+    }
+
+    .brand-panel {
+      padding: 28px;
+      display: grid;
+      gap: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .brand-panel::after {
+      content: '';
+      position: absolute;
+      inset: -1px -1px auto auto;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(43, 123, 187, 0.12), transparent 72%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(43, 123, 187, 0.18);
+      background: rgba(43, 123, 187, 0.08);
+      color: #2b7bbb;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .eyebrow-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 16px rgba(43, 123, 187, 0.45);
+    }
+
+    .title-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: end;
+    }
+
+    h1, h2, h3, h4 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 3.7rem);
+      line-height: 0.98;
+      max-width: 12ch;
+    }
+
+    .subtitle {
+      margin-top: 12px;
+      max-width: 72ch;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+
+    .status-panel {
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .status-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .status-title {
+      font-size: 0.95rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .status-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: rgba(47, 143, 107, 0.1);
+      color: #2f8f6b;
+      border: 1px solid rgba(47, 143, 107, 0.18);
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .status-pill.offline {
+      background: rgba(122, 135, 151, 0.12);
+      color: #5f6b7a;
+      border-color: rgba(122, 135, 151, 0.2);
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 16px rgba(43, 123, 187, 0.45);
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .meta-chip {
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(23, 37, 84, 0.06);
+      padding: 14px 14px 12px;
+      min-height: 88px;
+    }
+
+    .meta-chip .label {
+      font-size: 0.76rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .meta-chip .value {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      line-height: 1.1;
+      font-weight: 700;
+    }
+
+    .meta-chip .hint {
+      margin-top: 8px;
+      color: var(--muted-2);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .compact-metrics {
+      margin-bottom: 0;
+    }
+
+    .card {
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0 auto auto 0;
+      height: 4px;
+      width: 100%;
+      background: linear-gradient(90deg, rgba(43, 123, 187, 0.9), rgba(91, 124, 250, 0.85));
+      opacity: 0.9;
+    }
+
+    .card-label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+      font-weight: 700;
+    }
+
+    .card-value {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .card-foot {
+      color: var(--muted-2);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.34fr) minmax(0, 0.96fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .section,
+    .table-card,
+    .list-card {
+      padding: 22px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 1.2rem;
+      margin-bottom: 6px;
+    }
+
+    .section-subtitle {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(23, 37, 84, 0.08);
+      background: rgba(255, 255, 255, 0.75);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .swatch {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+
+    .swatch.alert { background: var(--danger); }
+    .swatch.active { background: var(--success); }
+    .swatch.offline { background: var(--slate); }
+    .swatch.other { background: var(--warning); }
+
+    .map-frame {
+      height: 540px;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid rgba(23, 37, 84, 0.08);
+      background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(240, 244, 249, 0.96));
+    }
+
+    .map-empty,
+    .empty-state {
+      display: grid;
+      place-items: center;
+      min-height: 320px;
+      border-radius: 22px;
+      border: 1px dashed rgba(23, 37, 84, 0.1);
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+      line-height: 1.6;
+    }
+
+    .table-card {
+      min-height: 100%;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(23, 37, 84, 0.08);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .table-card,
+    .list-card,
+    .section {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .table-card > .table-wrap,
+    .list-card > .table-wrap,
+    .list-card > .alert-list {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .table-card > .table-wrap,
+    .list-card > .table-wrap {
+      max-height: 620px;
+    }
+
+    .list-card > .alert-list {
+      max-height: 620px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 650px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: rgba(248, 250, 253, 0.98);
+      color: var(--muted);
+      font-size: 0.76rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(23, 37, 84, 0.06);
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(23, 37, 84, 0.05);
+      vertical-align: top;
+      color: #223044;
+      font-size: 0.95rem;
+    }
+
+    tbody tr:hover {
+      background: rgba(43, 123, 187, 0.05);
+    }
+
+    .mono {
+      font-variant-numeric: tabular-nums;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .badge.alert {
+      background: rgba(201, 75, 75, 0.1);
+      color: #b44141;
+      border-color: rgba(201, 75, 75, 0.18);
+    }
+
+    .badge.active {
+      background: rgba(47, 143, 107, 0.1);
+      color: #2f8f6b;
+      border-color: rgba(47, 143, 107, 0.18);
+    }
+
+    .badge.offline {
+      background: rgba(122, 135, 151, 0.12);
+      color: #5f6b7a;
+      border-color: rgba(122, 135, 151, 0.2);
+    }
+
+    .badge.other {
+      background: rgba(200, 132, 46, 0.1);
+      color: #a56c24;
+      border-color: rgba(200, 132, 46, 0.18);
+    }
+
+    .alert-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .alert-card {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 253, 0.9));
+      border: 1px solid rgba(23, 37, 84, 0.08);
+    }
+
+    .alert-top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      justify-content: space-between;
+      align-items: start;
+    }
+
+    .alert-node {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .alert-time {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 4px;
+    }
+
+    .alert-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .alert-stat {
+      padding: 13px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(23, 37, 84, 0.06);
+    }
+
+    .stat-label {
+      font-size: 0.74rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .stat-value {
+      font-size: 0.98rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .alert-meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 12px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .toolbar-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(23, 37, 84, 0.08);
+      background: rgba(255, 255, 255, 0.75);
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+
+    .toolbar-chip strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid rgba(91, 107, 122, 0.2);
+      border-top-color: var(--accent);
+      animation: spin 0.85s linear infinite;
+      display: inline-block;
+    }
+
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 0 rgba(43, 123, 187, 0.25);
+      animation: pulse 2s infinite;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted-2);
+      font-size: 0.88rem;
+      line-height: 1.5;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .link-pill {
+      color: #2b7bbb;
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(43, 123, 187, 0.35);
+    }
+
+    .section-body {
+      display: grid;
+      gap: 18px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(43, 123, 187, 0.25); }
+      70% { box-shadow: 0 0 0 10px rgba(43, 123, 187, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(43, 123, 187, 0); }
+    }
+
+    @media (max-width: 1180px) {
+      .hero,
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .grid-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        padding: 18px 14px 28px;
+      }
+
+      .brand-panel,
+      .status-panel,
+      .card,
+      .section,
+      .table-card,
+      .list-card {
+        border-radius: 22px;
+      }
+
+      .grid-4,
+      .meta-grid,
+      .alert-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .map-frame {
+        height: 420px;
+      }
+
+      h1 {
+        max-width: 100%;
+      }
+
+      .title-row,
+      .section-header,
+      .status-head,
+      .footer-note {
+        align-items: start;
+      }
+
+      .toolbar,
+      .legend {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <div class="brand-panel">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> Real-time acoustic monitoring</div>
+        <div class="title-row">
+          <div>
+            <h1>Forest Audio Monitor</h1>
+            <p class="subtitle">A live view of node activity, alert detection, and upload throughput for the ForestAudio pipeline. The page refreshes itself automatically so the dashboard stays current without manual intervention.</p>
+          </div>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-chip">
+            <div class="label">Data source</div>
+            <div class="value" id="apiBaseLabel">Connecting...</div>
+            <div class="hint">Browser polling against the local Flask API</div>
+          </div>
+          <div class="meta-chip">
+            <div class="label">Refresh cadence</div>
+            <div class="value" id="refreshLabel">10 seconds</div>
+            <div class="hint">Sequential polling to avoid overlapping requests</div>
+          </div>
+          <div class="meta-chip">
+            <div class="label">Last update</div>
+            <div class="value" id="lastUpdated">Waiting for first refresh</div>
+            <div class="hint">Time of the most recent successful data load</div>
+          </div>
+          <div class="meta-chip">
+            <div class="label">Health</div>
+            <div class="value" id="healthLabel">Unknown</div>
+            <div class="hint" id="healthHint">Checking API status</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-rail">
+        <aside class="status-panel">
+          <div class="status-head">
+            <div>
+              <div class="status-title">Live state</div>
+              <div class="status-value">Monitoring dashboard</div>
+            </div>
+            <div class="status-pill" id="connectionPill"><span class="status-dot"></span><span>Live polling</span></div>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-chip">
+              <div class="label">Nodes</div>
+              <div class="value" id="nodesCount">-</div>
+              <div class="hint">Registered nodes reporting to the system</div>
+            </div>
+            <div class="meta-chip">
+              <div class="label">Alerts</div>
+              <div class="value" id="alertsCount">-</div>
+              <div class="hint">Recent anomaly detections surfaced by the pipeline</div>
+            </div>
+            <div class="meta-chip">
+              <div class="label">Queued jobs</div>
+              <div class="value" id="queueCount">-</div>
+              <div class="hint">Pending background processing tasks</div>
+            </div>
+            <div class="meta-chip">
+              <div class="label">Uploads</div>
+              <div class="value" id="uploadsCount">-</div>
+              <div class="hint">Recent audio uploads stored in the database</div>
+            </div>
+          </div>
+        </aside>
+
+        <section class="grid-4 compact-metrics" aria-label="summary metrics">
+      <article class="card">
+        <div class="card-label">Nodes</div>
+        <div class="card-value" id="metricNodes">-</div>
+        <div class="card-foot">All nodes with active records in the current database snapshot.</div>
+      </article>
+      <article class="card">
+        <div class="card-label">Alerts</div>
+        <div class="card-value" id="metricAlerts">-</div>
+        <div class="card-foot">Recent alerts reported through the cloud pipeline.</div>
+      </article>
+      <article class="card">
+        <div class="card-label">Queued Jobs</div>
+        <div class="card-value" id="metricQueue">-</div>
+        <div class="card-foot">Unprocessed jobs waiting for the worker to pick up.</div>
+      </article>
+      <article class="card">
+        <div class="card-label">Uploads</div>
+        <div class="card-value" id="metricUploads">-</div>
+        <div class="card-foot">Stored audio uploads available in the database.</div>
+      </article>
+        </section>
+      </div>
+
+    </section>
+
+    <section class="main-grid">
+      <div class="section">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Node Map</h2>
+            <div class="section-subtitle">Interactive map with state-based markers and hover details for each node.</div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch alert"></span> Alert</span>
+            <span class="legend-item"><span class="swatch active"></span> Active</span>
+            <span class="legend-item"><span class="swatch offline"></span> Offline</span>
+            <span class="legend-item"><span class="swatch other"></span> Other</span>
+          </div>
+        </div>
+        <div id="mapWrap" class="map-frame">
+          <div class="map-empty" id="mapEmpty">Loading map data...</div>
+          <div id="map" class="hidden" style="width:100%;height:100%;"></div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Node Status</h2>
+            <div class="section-subtitle">Current heartbeat, prediction, confidence, and audio reference for each node.</div>
+          </div>
+          <div class="toolbar">
+            <span class="toolbar-chip"><span class="pulse"></span><strong id="freshnessChip">Live</strong></span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table aria-label="node status table">
+            <thead>
+              <tr>
+                <th>Node</th>
+                <th>Status</th>
+                <th>Last heartbeat</th>
+                <th>Prediction</th>
+                <th>Confidence</th>
+                <th>Audio</th>
+              </tr>
+            </thead>
+            <tbody id="nodesTableBody">
+              <tr><td colspan="6" class="muted">Loading node data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-top: 18px;" class="main-grid">
+      <div class="list-card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Recent Alerts</h2>
+            <div class="section-subtitle">Latest anomaly detections with confidence and location context.</div>
+          </div>
+          <div class="toolbar">
+            <span class="toolbar-chip">Updated <strong id="alertsAge">just now</strong></span>
+          </div>
+        </div>
+        <div class="alert-list" id="alertsList">
+          <div class="empty-state">Loading alert feed...</div>
+        </div>
+      </div>
+
+      <div class="list-card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Recent Uploads</h2>
+            <div class="section-subtitle">Most recent uploads captured by the pipeline and stored locally.</div>
+          </div>
+          <div class="toolbar">
+            <span class="toolbar-chip">Auto-refresh <strong id="uploadMode">On</strong></span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table aria-label="uploads table">
+            <thead>
+              <tr>
+                <th>Upload ID</th>
+                <th>Node</th>
+                <th>Filename</th>
+                <th>Status</th>
+                <th>Edge confidence</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody id="uploadsTableBody">
+              <tr><td colspan="6" class="muted">Loading upload data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      <div id="statusMessage">Polling data from the local API.</div>
+      <div><a class="link-pill" href="README.md" target="_blank" rel="noreferrer">Launch notes</a></div>
+    </div>
+  </div>
+
+  <script>
+    const REFRESH_INTERVAL_MS = 10000;
+    const DEFAULT_API_BASE = 'http://127.0.0.1:5001';
+    const apiBase = resolveApiBase();
+    const state = {
+      loading: false,
+      lastUpdated: null,
+      lastError: null,
+      nodes: [],
+      alerts: [],
+      uploads: [],
+      health: null,
+      mapRendered: false,
+    };
+
+    const nodesCountEl = document.getElementById('nodesCount');
+    const alertsCountEl = document.getElementById('alertsCount');
+    const queueCountEl = document.getElementById('queueCount');
+    const uploadsCountEl = document.getElementById('uploadsCount');
+    const metricNodesEl = document.getElementById('metricNodes');
+    const metricAlertsEl = document.getElementById('metricAlerts');
+    const metricQueueEl = document.getElementById('metricQueue');
+    const metricUploadsEl = document.getElementById('metricUploads');
+    const apiBaseLabelEl = document.getElementById('apiBaseLabel');
+    const refreshLabelEl = document.getElementById('refreshLabel');
+    const lastUpdatedEl = document.getElementById('lastUpdated');
+    const healthLabelEl = document.getElementById('healthLabel');
+    const healthHintEl = document.getElementById('healthHint');
+    const connectionPillEl = document.getElementById('connectionPill');
+    const statusMessageEl = document.getElementById('statusMessage');
+    const nodesTableBodyEl = document.getElementById('nodesTableBody');
+    const alertsListEl = document.getElementById('alertsList');
+    const uploadsTableBodyEl = document.getElementById('uploadsTableBody');
+    const mapEl = document.getElementById('map');
+    const mapEmptyEl = document.getElementById('mapEmpty');
+    const freshnessChipEl = document.getElementById('freshnessChip');
+    const alertsAgeEl = document.getElementById('alertsAge');
+
+    apiBaseLabelEl.textContent = apiBase;
+    refreshLabelEl.textContent = `${Math.round(REFRESH_INTERVAL_MS / 1000)} seconds`;
+
+    function resolveApiBase() {
+      const url = new URL(window.location.href);
+      const queryBase = url.searchParams.get('api');
+      if (queryBase) {
+        localStorage.setItem('forestaudioApiBase', queryBase);
+        return normalizeBase(queryBase);
+      }
+
+      const stored = localStorage.getItem('forestaudioApiBase');
+      if (stored) {
+        return normalizeBase(stored);
+      }
+
+      if (window.location.origin && window.location.origin !== 'null') {
+        return normalizeBase(window.location.origin);
+      }
+
+      return DEFAULT_API_BASE;
+    }
+
+    function normalizeBase(value) {
+      return String(value).replace(/\/$/, '');
+    }
+
+    function urlFor(path) {
+      return `${apiBase}${path}`;
+    }
+
+    function formatTimestamp(value) {
+      if (value === null || value === undefined || value === '') {
+        return '-';
+      }
+      const date = new Date(Number(value) * 1000);
+      if (Number.isNaN(date.getTime())) {
+        return '-';
+      }
+      const pad = (num) => String(num).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function formatConfidence(value) {
+      if (value === null || value === undefined || value === '') {
+        return '-';
+      }
+      const num = Number(value);
+      return Number.isFinite(num) ? num.toFixed(4) : '-';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[char]));
+    }
+
+    function mapColorState(prediction, status) {
+      if (prediction === 1) return 'alert';
+      if (status) return String(status).toLowerCase();
+      return 'active';
+    }
+
+    function statusClass(value) {
+      const status = String(value ?? '').toLowerCase();
+      if (status === 'alert' || status === 'active' || status === 'offline') {
+        return status;
+      }
+      return 'other';
+    }
+
+    function setLoading(isLoading) {
+      connectionPillEl.classList.remove('hidden');
+      if (isLoading) {
+        connectionPillEl.innerHTML = '<span class="spinner"></span><span>Refreshing</span>';
+        statusMessageEl.textContent = 'Refreshing live data from the API.';
+        freshnessChipEl.textContent = 'Refreshing';
+        return;
+      }
+      connectionPillEl.innerHTML = '<span class="status-dot"></span><span>Live polling</span>';
+      freshnessChipEl.textContent = 'Live';
+    }
+
+    function setHealth(health) {
+      if (!health) {
+        healthLabelEl.textContent = 'Unknown';
+        healthHintEl.textContent = 'API status unavailable';
+        return;
+      }
+      const ok = String(health.status).toLowerCase() === 'ok';
+      healthLabelEl.textContent = ok ? 'Healthy' : String(health.status ?? 'Unknown');
+      healthHintEl.textContent = ok ? `Queue size: ${health.queue_size ?? '-'}` : 'Backend returned a non-ok status';
+      connectionPillEl.classList.toggle('offline', !ok);
+    }
+
+    function renderMetrics() {
+      const nodesCount = state.nodes.length;
+      const alertsCount = state.alerts.length;
+      const uploadsCount = state.uploads.length;
+      const queueCount = state.health && state.health.queue_size !== undefined ? state.health.queue_size : '-';
+
+      nodesCountEl.textContent = nodesCount;
+      alertsCountEl.textContent = alertsCount;
+      queueCountEl.textContent = queueCount;
+      uploadsCountEl.textContent = uploadsCount;
+
+      metricNodesEl.textContent = nodesCount;
+      metricAlertsEl.textContent = alertsCount;
+      metricQueueEl.textContent = queueCount;
+      metricUploadsEl.textContent = uploadsCount;
+    }
+
+    function renderNodesTable(nodes) {
+      if (!nodes.length) {
+        nodesTableBodyEl.innerHTML = '<tr><td colspan="6" class="muted">No node records available.</td></tr>';
+        return;
+      }
+
+      nodesTableBodyEl.innerHTML = nodes.map((node) => {
+        const stateClass = statusClass(node.status);
+        const prediction = node.last_prediction === null || node.last_prediction === undefined ? '-' : node.last_prediction;
+        const confidence = formatConfidence(node.last_confidence);
+        const audio = node.last_audio ? escapeHtml(node.last_audio) : '-';
+        return `
+          <tr>
+            <td><strong>${escapeHtml(node.node_id)}</strong></td>
+            <td><span class="badge ${stateClass}">${escapeHtml(node.status ?? '-')}</span></td>
+            <td class="mono">${formatTimestamp(node.last_heartbeat)}</td>
+            <td>${prediction}</td>
+            <td class="mono">${confidence}</td>
+            <td>${audio}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderAlerts(alerts) {
+      if (!alerts.length) {
+        alertsListEl.innerHTML = '<div class="empty-state">No anomaly alerts yet.</div>';
+        return;
+      }
+
+      alertsListEl.innerHTML = alerts.map((alert) => {
+        const edge = formatConfidence(alert.edge_confidence);
+        const cloud = formatConfidence(alert.cloud_confidence);
+        const backend = escapeHtml(alert.backend ?? alert.inference_backend ?? '-');
+        const predictedClass = escapeHtml(alert.predicted_class ?? '-');
+        return `
+          <article class="alert-card">
+            <div class="alert-top">
+              <div>
+                <div class="alert-node">${escapeHtml(alert.node_id)}</div>
+                <div class="alert-time">${formatTimestamp(alert.created_at)}</div>
+              </div>
+              <span class="badge alert">${predictedClass}</span>
+            </div>
+            <div class="alert-grid">
+              <div class="alert-stat">
+                <div class="stat-label">Cloud confidence</div>
+                <div class="stat-value mono">${cloud}</div>
+              </div>
+              <div class="alert-stat">
+                <div class="stat-label">Edge confidence</div>
+                <div class="stat-value mono">${edge}</div>
+              </div>
+              <div class="alert-stat">
+                <div class="stat-label">Location</div>
+                <div class="stat-value mono">${Number(alert.lat).toFixed(5)}, ${Number(alert.lon).toFixed(5)}</div>
+              </div>
+            </div>
+            <div class="alert-meta">Backend: ${backend} | Upload: ${escapeHtml(alert.upload_id ?? '-')}</div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderUploadsTable(uploads) {
+      if (!uploads.length) {
+        uploadsTableBodyEl.innerHTML = '<tr><td colspan="6" class="muted">No upload records available.</td></tr>';
+        return;
+      }
+
+      uploadsTableBodyEl.innerHTML = uploads.map((upload) => {
+        const confidence = formatConfidence(upload.edge_confidence);
+        const filename = upload.filename ? escapeHtml(upload.filename) : '-';
+        return `
+          <tr>
+            <td><strong>${escapeHtml(upload.upload_id)}</strong></td>
+            <td>${escapeHtml(upload.node_id)}</td>
+            <td>${filename}</td>
+            <td><span class="badge ${statusClass(upload.status)}">${escapeHtml(upload.status ?? '-')}</span></td>
+            <td class="mono">${confidence}</td>
+            <td class="mono">${formatTimestamp(upload.created_at)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function groupNodesForMap(nodes) {
+      const groups = {
+        alert: [],
+        active: [],
+        offline: [],
+        other: [],
+      };
+
+      nodes.forEach((node) => {
+        const state = mapColorState(node.last_prediction, node.status);
+        const key = groups[state] ? state : 'other';
+        groups[key].push(node);
+      });
+
+      return groups;
+    }
+
+    function createTrace(label, color, nodes) {
+      if (!nodes.length) return null;
+      return {
+        type: 'scattermapbox',
+        mode: 'markers',
+        name: label,
+        lat: nodes.map((node) => node.lat),
+        lon: nodes.map((node) => node.lon),
+        text: nodes.map((node) => node.node_id),
+        customdata: nodes.map((node) => [
+          node.status ?? '-',
+          node.last_prediction === null || node.last_prediction === undefined ? '-' : node.last_prediction,
+          formatConfidence(node.last_confidence),
+          node.last_audio ?? '-',
+          formatTimestamp(node.last_heartbeat),
+        ]),
+        hovertemplate: '<b>%{text}</b><br>Status: %{customdata[0]}<br>Prediction: %{customdata[1]}<br>Confidence: %{customdata[2]}<br>Audio: %{customdata[3]}<br>Heartbeat: %{customdata[4]}<extra></extra>',
+        marker: {
+          size: 13,
+          color,
+          opacity: 0.95,
+        },
+      };
+    }
+
+    function renderMap(nodes) {
+      if (!nodes.length) {
+        mapEl.classList.add('hidden');
+        mapEmptyEl.classList.remove('hidden');
+        mapEmptyEl.textContent = 'No nodes have reported in yet.';
+        return;
+      }
+
+      const grouped = groupNodesForMap(nodes);
+      const traces = [
+        createTrace('Alert', '#ff6161', grouped.alert),
+        createTrace('Active', '#2a9d8f', grouped.active),
+        createTrace('Offline', '#8d99ae', grouped.offline),
+        createTrace('Other', '#ffbf69', grouped.other),
+      ].filter(Boolean);
+
+      const centerLat = nodes.reduce((sum, node) => sum + Number(node.lat || 0), 0) / nodes.length;
+      const centerLon = nodes.reduce((sum, node) => sum + Number(node.lon || 0), 0) / nodes.length;
+      const latSpread = Math.max(...nodes.map((node) => Number(node.lat || 0))) - Math.min(...nodes.map((node) => Number(node.lat || 0)));
+      const lonSpread = Math.max(...nodes.map((node) => Number(node.lon || 0))) - Math.min(...nodes.map((node) => Number(node.lon || 0)));
+      const span = Math.max(latSpread, lonSpread, 0.02);
+      const zoom = span < 0.03 ? 12.5 : span < 0.08 ? 11.2 : 10.2;
+
+      mapEmptyEl.classList.add('hidden');
+      mapEl.classList.remove('hidden');
+
+      const layout = {
+        mapbox: {
+          style: 'open-street-map',
+          center: { lat: centerLat, lon: centerLon },
+          zoom,
+        },
+        margin: { l: 0, r: 0, t: 0, b: 0 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        showlegend: false,
+        hovermode: 'closest',
+        font: {
+          family: 'IBM Plex Sans, system-ui, sans-serif',
+          color: '#142033',
+        },
+      };
+
+      const config = {
+        displayModeBar: false,
+        responsive: true,
+      };
+
+      Plotly.react(mapEl, traces, layout, config);
+      state.mapRendered = true;
+    }
+
+    function updateTimestamp(now) {
+      const pad = (num) => String(num).padStart(2, '0');
+      lastUpdatedEl.textContent = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      alertsAgeEl.textContent = 'just now';
+    }
+
+    async function fetchJson(path, signal) {
+      const response = await fetch(urlFor(path), { signal, cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`Request failed for ${path}: ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function refreshDashboard() {
+      if (state.loading) {
+        return;
+      }
+
+      state.loading = true;
+      setLoading(true);
+
+      const controller = new AbortController();
+      const signal = controller.signal;
+
+      try {
+        const [health, nodesPayload, alertsPayload, uploadsPayload] = await Promise.all([
+          fetchJson('/health', signal),
+          fetchJson('/nodes', signal),
+          fetchJson('/alerts', signal),
+          fetchJson('/uploads', signal),
+        ]);
+
+        state.health = health;
+        state.nodes = Array.isArray(nodesPayload.nodes) ? nodesPayload.nodes : [];
+        state.alerts = Array.isArray(alertsPayload.alerts) ? alertsPayload.alerts : [];
+        state.uploads = Array.isArray(uploadsPayload.uploads) ? uploadsPayload.uploads : [];
+        state.lastError = null;
+
+        renderMetrics();
+        setHealth(health);
+        renderMap(state.nodes);
+        renderNodesTable(state.nodes);
+        renderAlerts(state.alerts);
+        renderUploadsTable(state.uploads);
+        updateTimestamp(new Date());
+        statusMessageEl.textContent = `Last successful refresh from ${apiBase}.`;
+        connectionPillEl.classList.remove('offline');
+      } catch (error) {
+        state.lastError = error;
+        const message = error && error.name === 'AbortError'
+          ? 'Refresh cancelled.'
+          : `Unable to load dashboard data from ${apiBase}.`;
+        statusMessageEl.textContent = message;
+        healthLabelEl.textContent = 'Unavailable';
+        healthHintEl.textContent = 'Waiting for the API to respond';
+        connectionPillEl.classList.add('offline');
+        if (state.nodes.length === 0) {
+          renderNodesTable([]);
+          renderAlerts([]);
+          renderUploadsTable([]);
+          mapEmptyEl.classList.remove('hidden');
+          mapEl.classList.add('hidden');
+          mapEmptyEl.textContent = 'No map data available yet.';
+        }
+      } finally {
+        state.loading = false;
+        setLoading(false);
+        if (state.lastUpdated === null && !state.lastError) {
+          state.lastUpdated = Date.now();
+        } else if (!state.lastError) {
+          state.lastUpdated = Date.now();
+        }
+        setTimeout(refreshDashboard, REFRESH_INTERVAL_MS);
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      if (state.mapRendered && window.Plotly && mapEl && !mapEl.classList.contains('hidden')) {
+        Plotly.Plots.resize(mapEl);
+      }
+    });
+
+    if (window.Plotly) {
+      setLoading(true);
+      refreshDashboard();
+    } else {
+      statusMessageEl.textContent = 'Plotly failed to load.';
+      healthLabelEl.textContent = 'Unavailable';
+      healthHintEl.textContent = 'Map library is missing';
+    }
+  </script>
+</body>
+</html>
