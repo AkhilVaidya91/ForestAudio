@@ -1,10 +1,10 @@
-# ForestAudio
+# Forest-Audio
 
-ForestAudio is a distributed, audio-based forest surveillance system that combines edge inference, cloud re-evaluation, and a live browser dashboard to detect likely illegal logging activity in near real time. The system is built as a local end-to-end application: audio clips are sampled to remote sensor nodes, evaluated on the edge, uploaded when suspicious, and then re-checked in the cloud before being shown in the dashboard.
+Forest-Audio is a distributed, audio-based forest surveillance system that combines edge inference, cloud re-evaluation, and a live browser dashboard to detect likely illegal logging activity in near real time. The system is built as a local end-to-end application: audio clips are sampled to remote sensor nodes, evaluated on the edge, uploaded when suspicious, and then re-checked in the cloud before being shown in the dashboard.
 
 ## What The System Does
 
-ForestAudio models a practical forest monitoring pipeline with three layers:
+Forest-Audio models a practical forest monitoring pipeline with three layers:
 
 1. Edge nodes continuously sample audio every 20 seconds.
 2. A lightweight edge model (LightGBM) scores each sample and forwards only suspicious clips.
@@ -24,9 +24,11 @@ The runtime flow is:
 6. The storage layer in [src/storage.py](src/storage.py) persists nodes, uploads, jobs, and alerts in `data/forest_audio.sqlite3`.
 7. The dashboard in [index.html](index.html) polls the Flask API and shows live nodes, recent uploads, and recent alerts.
 
+![System Design](assets/sys.png)
+
 ## Technology Stack
 
-ForestAudio uses a lightweight local stack rather than a managed cloud deployment:
+Forest-Audio uses a lightweight local stack rather than a managed cloud deployment:
 
 | Area | Technology |
 | --- | --- |
@@ -50,7 +52,7 @@ Core runtime files:
 
 ## Application Flow
 
-ForestAudio is intentionally structured as a closed-loop prototype so the whole pipeline can run on a single machine.
+Forest-Audio is intentionally structured as a closed-loop prototype so the whole pipeline can run on a single machine.
 
 Edge flow:
 
@@ -68,7 +70,7 @@ Cloud flow:
 
 ## Models And Results
 
-ForestAudio compares both classical ML and deep learning approaches across edge and cloud layers. The project keeps the edge layer efficient and the cloud layer more expressive.
+Forest-Audio compares both classical ML and deep learning approaches across edge and cloud layers. The project keeps the edge layer efficient and the cloud layer more expressive.
 
 ### Edge Layer Results
 
@@ -178,7 +180,7 @@ Additional entrypoints:
 
 ## Configuration
 
-ForestAudio is configured through environment variables defined in [src/config.py](src/config.py).
+Forest-Audio is configured through environment variables defined in [src/config.py](src/config.py).
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -195,4 +197,4 @@ ForestAudio is configured through environment variables defined in [src/config.p
 
 ## Summary
 
-ForestAudio demonstrates how acoustic monitoring can be split into a fast edge gate and a stronger cloud classifier. The result is a practical, reproducible local system that shows the operational shape of distributed forest surveillance without requiring live hardware.
+Forest-Audio demonstrates how acoustic monitoring can be split into a fast edge gate and a stronger cloud classifier. The result is a practical, reproducible local system that shows the operational shape of distributed forest surveillance without requiring live hardware.
